@@ -1,0 +1,27 @@
+# Proyecto Final SI3003 - Agente de Calidad del Aire del Valle de Aburra
+# Stack liviano, solo CPU. Probado con Python 3.11-3.14.
+
+# Datos y computo
+numpy>=1.26
+pandas>=2.1
+
+# Parte 1 (metricas, TF-IDF, utilidades) - el clasificador Naive Bayes es propio
+scikit-learn>=1.4
+
+# Agente LLM (Groq, API compatible con OpenAI)
+groq>=0.11
+python-dotenv>=1.0
+
+# Acceso a datos (API SIATA con fallback)
+requests>=2.31
+
+# Dashboard y visualizacion
+streamlit>=1.37
+plotly>=5.22
+
+# Notebook de EDA (Parte 1)
+jupyter>=1.0
+matplotlib>=3.8
+
+# Pruebas
+pytest>=8.0
