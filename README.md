@@ -7,7 +7,7 @@ Proyecto Final — **SI3003 Inteligencia Artificial**, Universidad EAFIT (2026-1
 | Nombre | ID estudiante |
 |--------|---------------|
 | Cristian Cárdenas | 1000258211 |
-|  |  |
+| Danna Carolina Mendoza Burgos |  |
 |  |  |
 
 Una solución que combina una técnica clásica de IA implementada por el equipo

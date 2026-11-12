@@ -7,8 +7,8 @@ SI3003 Inteligencia Artificial — Universidad EAFIT, 2026-1
 | Nombre | ID estudiante |
 |--------|---------------|
 | Cristian Cárdenas | 1000258211 |
-|  |  |
-|  |  |
+| Danna Carolina Mendoza Burgos | #TODO |
+| #TODO | #TODO |
 
 ## 1. Problema y datos
 
