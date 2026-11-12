@@ -31,7 +31,7 @@ interactivo con chat.
 ## Arquitectura
 
 ```
-Datos (API SIATA -> CSV, con fallback)         Parte 1 (clasica)
+Datos reales (OpenAQ/SIATA) -> CSV, con fallback   Parte 1 (clasica)
   src/siata_api.py  ->  src/data_loader.py  ->  src/naive_bayes.py + baselines
                              |                        |
                              v                        v
@@ -76,7 +76,33 @@ GROQ_MODEL_FALLBACK=openai/gpt-oss-120b
 > Nota: usa modelos a los que tu cuenta de Groq tenga acceso. Los `openai/gpt-oss-*`
 > están disponibles en el tier gratuito y soportan *tool calling*.
 
-## Cómo ejecutar
+## Inicio rápido (lo mínimo para ver la app)
+
+Tras instalar dependencias y configurar `.env` con `GROQ_API_KEY`:
+
+```bash
+streamlit run app.py
+```
+
+Eso basta: el dashboard carga los datos reales incluidos en el repositorio
+(`data/raw/siata_real.csv`) y, si el modelo no está entrenado, lo entrena
+automáticamente la primera vez. El chat necesita la `GROQ_API_KEY`; el resto del
+dashboard (mapa, serie, predicción) funciona sin conexión.
+
+## Capturas
+
+Vista general: tarjeta del PM2.5 del día con su categoría y la predicción de
+mañana, mapa de las estaciones coloreadas por calidad del aire y serie de tiempo
+con bandas de umbral.
+
+![Vista general del dashboard: tarjeta del día, mapa de estaciones y serie de tiempo de PM2.5](docs/img/dashboard.png)
+
+Chat con el agente: consulta el PM2.5 de una estación, entrega recomendaciones de
+salud, cita las fuentes del corpus y muestra las herramientas usadas.
+
+![Conversación con el agente mostrando datos, recomendaciones, fuentes citadas y herramientas usadas](docs/img/chat_agente.png)
+
+## Cómo ejecutar (paso a paso)
 
 ### 1. (Opcional) Verificar el acceso a datos
 ```bash
@@ -126,14 +152,29 @@ Si `siata_real.csv` existe, el sistema lo usa por defecto; si no, cae al dataset
 sintético `data/raw/siata_sample.csv` (reproducible, sin descargas). Ver
 `data/README.md` para el detalle de columnas y fuentes.
 
+> **Nota sobre la actualidad de los datos.** El proyecto trabaja con un
+> **histórico descargado** (plan B del enunciado), no con datos en tiempo real.
+> SIATA no expone una API REST pública y estable con series históricas diarias;
+> la vía programática usada es OpenAQ, que requiere API key y entrega PM2.5 pero
+> **no** meteorología. Por eso el CSV incluido tiene una fecha de corte (no es el
+> día de hoy) y el dashboard muestra el "último día disponible" de cada estación,
+> que corresponde a esa descarga. Para actualizarlo basta volver a correr
+> `scripts/descargar_datos_openaq.py`. Esta decisión prioriza la
+> reproducibilidad: la demo corre igual aunque la red o la API fallen.
+
 ## Pruebas
+
+Con el entorno virtual activado:
 
 ```bash
 pytest -q
 ```
+
+Resultado esperado: **58 pruebas pasan**. No consumen la API de Groq (el agente
+se prueba con un cliente simulado), así que corren sin conexión ni gastar cuota.
 Cubren la categorización ICA, el cliente de datos con fallback, la correctitud
 del Naive Bayes (comparado contra `sklearn.GaussianNB`), el RAG, las herramientas,
-el loop del agente (con cliente simulado) y las figuras del dashboard.
+el loop del agente y las figuras del dashboard.
 
 ## Resultados (Parte 1)
 
@@ -159,9 +200,12 @@ completo en `eval/resultados/`.
 ## Limitaciones
 
 - Las clases de calidad del aire están desbalanceadas (predominan días
-  buenos/moderados), lo que reduce el F1 macro.
-- El dataset incluido es sintético; para conclusiones reales deben cargarse
-  históricos de SIATA.
+  buenos/moderados); por eso el modelo se evalúa con F1 macro.
+- Los datos reales de OpenAQ no incluyen meteorología (temperatura, viento,
+  lluvia); el modelo usa solo señales derivadas del PM2.5. Combinar con datos de
+  IDEAM es trabajo futuro.
+- El Naive Bayes no supera a la persistencia en *accuracy* (sí en F1 macro): la
+  persistencia es una línea base fuerte en series de calidad del aire.
 - El agente a veces da recomendaciones sin consultar el corpus (ver la pregunta
   que falló la citación); es un área de mejora del *prompt*.
 - **No es una herramienta clínica ni de consejo médico.**
@@ -180,6 +224,26 @@ tests/                      Pruebas (pytest)
 docs/                       Verificacion de acceso, informe, declaracion de IA
 .kiro/skills/               Skill de diseño frontend usada para el dashboard
 ```
+
+## Guía de revisión (dónde está cada requisito)
+
+Para facilitar la evaluación sin sustentación, esto mapea cada requisito del
+enunciado a su ubicación en el repositorio:
+
+| Requisito | Dónde verlo |
+|-----------|-------------|
+| Datos reales, documentados y citados | `data/README.md`, `docs/verificacion_acceso_datos.md`, `data/raw/siata_real.csv` |
+| Verificación de acceso en 48h + plan B | `scripts/verificar_acceso_datos.py`, `src/siata_api.py` |
+| Parte 1 implementada por el equipo | `src/naive_bayes.py` (sin `sklearn.GaussianNB`) |
+| Métrica vs línea base | `src/train.py`, `src/baselines.py`, `models/reporte_parte1.txt` |
+| Agente LLM con loop y RAG | `src/agent.py`, `src/rag.py` |
+| ≥2 herramientas con manejo de errores | `src/tools.py` (3 herramientas) |
+| ≥2 visualizaciones | `src/viz.py` (mapa + serie), vistas en `app.py` |
+| Interacción del usuario | `app.py` (selección de estación/fecha + chat) |
+| Evaluación del agente (10-15 preguntas) | `eval/preguntas.py`, `eval/resultados/` |
+| Informe (≤4 páginas) | `docs/informe.md` |
+| Declaración de uso de IA | `docs/declaracion_uso_ia.md` |
+| Reproducibilidad | este README + `requirements.txt` + `pytest` |
 
 ## Declaración de uso de IA generativa
 
