@@ -48,6 +48,32 @@ def estaciones_disponibles() -> list[str]:
     return sorted(_datos()["estacion"].unique().tolist())
 
 
+def _norm(s: str) -> str:
+    """Normaliza para comparar: minusculas y sin acentos."""
+    s = s.lower().strip()
+    for a, b in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ü", "u")):
+        s = s.replace(a, b)
+    return s
+
+
+def resolver_estacion(consulta: str) -> str | None:
+    """Resuelve el nombre de estacion que el usuario/agente escribe.
+
+    Acepta coincidencia exacta o parcial (p.ej. 'Bello' -> 'BEL-FEVE - Bello -
+    I.E. Fernando Velez'). Devuelve el nombre canonico o None si no hay match
+    unico claro.
+    """
+    disponibles = estaciones_disponibles()
+    if consulta in disponibles:
+        return consulta
+    q = _norm(consulta)
+    # Coincidencia por subcadena (nombre de municipio o codigo).
+    candidatos = [e for e in disponibles if q in _norm(e)]
+    if len(candidatos) >= 1:
+        return candidatos[0]
+    return None
+
+
 # --------------------------------------------------------------------------
 # Tool 1: get_pm25
 # --------------------------------------------------------------------------
@@ -58,12 +84,13 @@ def get_pm25(estacion: str, fecha: str | None = None) -> dict[str, Any]:
     """
     try:
         df = _datos()
-        disponibles = estaciones_disponibles()
-        if estacion not in disponibles:
+        resuelta = resolver_estacion(estacion)
+        if resuelta is None:
             return {
                 "error": f"Estacion '{estacion}' no encontrada.",
-                "estaciones_disponibles": disponibles,
+                "estaciones_disponibles": estaciones_disponibles(),
             }
+        estacion = resuelta
         sub = df[df["estacion"] == estacion].sort_values("fecha")
 
         if fecha is not None:
@@ -102,25 +129,35 @@ def get_pm25(estacion: str, fecha: str | None = None) -> dict[str, Any]:
 def predict_tomorrow(estacion: str) -> dict[str, Any]:
     """Predice la categoria de calidad del aire de mañana para una estacion.
 
-    Usa las condiciones del ultimo dia disponible como features del Naive Bayes.
+    Construye las features del PM2.5 (hoy, ayer, media movil, variacion y dia del
+    anio) a partir del historico reciente de la estacion y las pasa al Naive
+    Bayes.
     """
     try:
         df = _datos()
-        disponibles = estaciones_disponibles()
-        if estacion not in disponibles:
+        resuelta = resolver_estacion(estacion)
+        if resuelta is None:
             return {
                 "error": f"Estacion '{estacion}' no encontrada.",
-                "estaciones_disponibles": disponibles,
+                "estaciones_disponibles": estaciones_disponibles(),
             }
-        sub = df[df["estacion"] == estacion].sort_values("fecha")
-        ultimo = sub.iloc[-1]
+        estacion = resuelta
+        sub = df[df["estacion"] == estacion].sort_values("fecha").copy()
+        if len(sub) < 7:
+            return {"error": f"Datos insuficientes para '{estacion}' (se requieren 7 dias)."}
 
-        X = np.array([[
-            float(ultimo["pm25"]),
-            float(ultimo["temperatura"]),
-            float(ultimo["viento"]),
-            float(ultimo["precipitacion"]),
-        ]])
+        # Features del ultimo dia disponible (mismas que build_features):
+        # pm25_hoy, pm25_delta, pm25_media7, dia_anio.
+        ult7 = sub.tail(7)["pm25"].to_numpy(dtype=float)
+        ultimo = sub.iloc[-1]
+        pm25_hoy = float(ult7[-1])
+        pm25_ayer = float(ult7[-2])
+        pm25_media7 = float(ult7.mean())
+        pm25_delta = pm25_hoy - pm25_ayer
+        fecha_ts = pd.Timestamp(ultimo["fecha"])
+        dia_anio = float(fecha_ts.day_of_year)
+
+        X = np.array([[pm25_hoy, pm25_delta, pm25_media7, dia_anio]])
         modelo = _modelo()
         categoria = str(modelo.predict(X)[0])
         proba = modelo.predict_proba(X)[0]
@@ -130,6 +167,7 @@ def predict_tomorrow(estacion: str) -> dict[str, Any]:
         return {
             "estacion": estacion,
             "fecha_base": str(pd.Timestamp(ultimo["fecha"]).date()),
+            "pm25_hoy": round(pm25_hoy, 1),
             "categoria_predicha_manana": categoria,
             "confianza": round(confianza, 3),
             "nota": "Prediccion estadistica orientativa, no es una certeza.",

@@ -111,10 +111,20 @@ Abre `notebooks/01_eda_parte1.ipynb` en Jupyter.
 
 ## Datos
 
-Fuente real: **SIATA** (Sistema de Alerta Temprana del Valle de Aburrá). Ver
-`data/README.md` para el detalle de columnas, el plan B en CSV y cómo usar datos
-reales descargados. El repositorio incluye `data/raw/siata_sample.csv`, un
-dataset sintético y determinista que permite correr todo sin descargar nada.
+Fuente real: **SIATA** (Sistema de Alerta Temprana del Valle de Aburrá). El
+proyecto usa **datos reales** de PM2.5 diario de 24 estaciones del Valle de
+Aburrá, descargados vía **OpenAQ** (agrega la red oficial de Medellín).
+
+Para regenerar los datos reales (requiere una API key gratuita de OpenAQ en
+`.env` como `OPENAQ_API_KEY`, obtenida en https://explore.openaq.org/register):
+
+```bash
+python scripts/descargar_datos_openaq.py   # crea data/raw/siata_real.csv
+```
+
+Si `siata_real.csv` existe, el sistema lo usa por defecto; si no, cae al dataset
+sintético `data/raw/siata_sample.csv` (reproducible, sin descargas). Ver
+`data/README.md` para el detalle de columnas y fuentes.
 
 ## Pruebas
 
@@ -127,15 +137,18 @@ el loop del agente (con cliente simulado) y las figuras del dashboard.
 
 ## Resultados (Parte 1)
 
-Sobre el dataset de muestra, con split temporal 80/20:
+Sobre **datos reales** (31.457 registros, 24 estaciones), split temporal 80/20:
 
 | Modelo                              | Accuracy | F1 macro |
 |-------------------------------------|----------|----------|
-| Naive Bayes (propio)                | 0.903    | 0.600    |
-| Línea base: clase mayoritaria       | 0.831    | 0.303    |
-| Línea base: persistencia (hoy=mañana)| 0.900   | 0.599    |
+| Naive Bayes (propio)                | 0.749    | **0.572** |
+| Línea base: clase mayoritaria       | 0.787    | 0.220    |
+| Línea base: persistencia (hoy=mañana)| 0.794   | 0.488    |
 
-El Naive Bayes propio supera a ambas líneas base.
+El Naive Bayes supera a ambas líneas base en **F1 macro** (la métrica relevante
+con clases desbalanceadas: detecta mejor los días de mala calidad del aire). En
+accuracy queda por debajo de la persistencia, una línea base fuerte en series
+temporales. Ver análisis en `docs/informe.md`.
 
 ## Evaluación del agente
 

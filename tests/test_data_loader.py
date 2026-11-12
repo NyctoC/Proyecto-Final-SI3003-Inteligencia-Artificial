@@ -51,6 +51,13 @@ def test_load_data_csv_por_defecto():
     df, fuente = dl.load_data()
     assert fuente == "csv"
     assert list(df.columns) == dl.COLUMNAS
+    assert len(df) > 0
+
+
+def test_load_data_csv_sintetico_explicito():
+    df, fuente = dl.load_data(path=dl.CSV_SINTETICO)
+    assert fuente == "csv"
+    # 6 estaciones x 730 dias (tras limpieza/agrupado se conserva).
     assert len(df) == 4380
 
 
@@ -59,7 +66,7 @@ def test_load_data_fallback_cuando_api_falla():
     with patch.object(dl.siata_api, "fetch_data", return_value=None):
         df, fuente = dl.load_data(prefer_api=True)
     assert fuente == "csv"
-    assert len(df) == 4380
+    assert len(df) > 0
 
 
 def test_load_data_usa_api_si_hay_datos():
@@ -94,21 +101,27 @@ def test_build_features_sin_nan_en_objetivo_y_features():
 
 
 def test_build_features_objetivo_es_categoria_del_dia_siguiente():
-    # Serie controlada de una sola estacion.
+    # Serie de 9 dias: media movil de 7 dias necesita 7 observaciones, y el
+    # objetivo requiere el dia siguiente.
+    fechas = pd.date_range("2024-01-01", periods=9, freq="D")
+    # Dia 8 (indice 7) tiene pm25 bajo (Buena); dia 9 alto (Dañina a sensibles).
+    pm = [8.0, 9.0, 10.0, 11.0, 12.0, 10.0, 9.0, 8.0, 40.0]
     df = pd.DataFrame(
         {
-            "fecha": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
-            "estacion": ["E", "E", "E"],
-            "pm25": [10.0, 40.0, 5.0],  # Buena, Dañina a sensibles, Buena
-            "temperatura": [20.0, 21.0, 22.0],
-            "viento": [1.0, 1.0, 1.0],
-            "precipitacion": [0.0, 0.0, 0.0],
-            "lat": [6.0, 6.0, 6.0],
-            "lon": [-75.0, -75.0, -75.0],
+            "fecha": fechas,
+            "estacion": ["E"] * 9,
+            "pm25": pm,
+            "temperatura": [20.0] * 9,
+            "viento": [1.0] * 9,
+            "precipitacion": [0.0] * 9,
+            "lat": [6.0] * 9,
+            "lon": [-75.0] * 9,
         }
     )
     feats = dl.build_features(df)
-    # Dia 1 (pm25=10, Buena) -> objetivo = categoria del dia 2 (pm25=40)
-    fila1 = feats[feats["fecha"] == pd.Timestamp("2024-01-01")].iloc[0]
-    assert fila1["categoria_hoy"] == "Buena"
-    assert fila1["objetivo"] == "Dañina a grupos sensibles"
+    fila8 = feats[feats["fecha"] == pd.Timestamp("2024-01-08")].iloc[0]
+    assert fila8["categoria_hoy"] == "Buena"            # pm25=8 -> Buena
+    assert fila8["objetivo"] == "Dañina a grupos sensibles"  # dia 9 pm25=40
+    # media movil de 7 dias hasta el dia 8 = media de pm[1:8]
+    esperado_media7 = sum(pm[1:8]) / 7
+    assert abs(fila8["pm25_media7"] - esperado_media7) < 1e-9

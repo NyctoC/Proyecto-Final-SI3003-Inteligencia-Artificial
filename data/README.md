@@ -21,18 +21,28 @@ Variables usadas por estación y día:
 | `precipitacion` | Precipitación acumulada del día               | mm     |
 | `lat`, `lon`    | Coordenadas de la estación                    | grados |
 
-## Plan A — Acceso por API
+## Datos reales — OpenAQ (fuente por defecto)
 
-El módulo `src/siata_api.py` intenta obtener datos desde SIATA y los normaliza
-al esquema de la tabla anterior. La verificación de acceso a la API se ejecuta
-en las primeras 48 horas del proyecto (requisito 1 del enunciado); su resultado
-queda documentado en `docs/verificacion_acceso_datos.md`.
+Los datos reales de PM2.5 diario provienen de **OpenAQ**, que agrega la red
+oficial de calidad del aire de Medellín operada por SIATA. Se descargan con:
 
-## Plan B — Históricos en CSV (modo por defecto)
+```bash
+python scripts/descargar_datos_openaq.py   # crea data/raw/siata_real.csv
+```
 
-Para garantizar que la aplicación corra de forma reproducible y sin depender de
-la disponibilidad de la API durante la demostración, el sistema usa por defecto
-archivos CSV locales en `data/raw/`.
+Requiere una API key gratuita de OpenAQ (https://explore.openaq.org/register)
+en `.env` como `OPENAQ_API_KEY`. El archivo resultante `siata_real.csv` contiene
+~31.457 registros de 24 estaciones del Valle de Aburrá (hasta ~5 años). OpenAQ
+entrega PM2.5 pero no meteorología, por lo que esas columnas quedan vacías.
+
+La verificación de acceso a datos (requisito 1) se documenta en
+`docs/verificacion_acceso_datos.md`.
+
+## Plan B — Dataset sintético
+
+Para garantizar que la aplicación corra sin descargas ni red, el repositorio
+incluye `data/raw/siata_sample.csv`. Si `siata_real.csv` no existe, el sistema
+usa este dataset por defecto.
 
 ### `siata_sample.csv` (incluido en el repositorio)
 

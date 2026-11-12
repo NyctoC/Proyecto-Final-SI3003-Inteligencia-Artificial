@@ -9,19 +9,22 @@ sys.path.insert(0, str(RAIZ))
 
 from src import tools  # noqa: E402
 
+# Usa una estacion real cualquiera del dataset activo (robusto a la fuente).
+ESTACION = tools.estaciones_disponibles()[0]
+
 
 def test_estaciones_disponibles():
     ests = tools.estaciones_disponibles()
     assert len(ests) >= 1
-    assert "Medellin-Centro" in ests
+    assert all(isinstance(e, str) and e for e in ests)
 
 
 # ---------------------- get_pm25 ----------------------
 
 def test_get_pm25_ultimo_dia():
-    r = tools.get_pm25("Medellin-Centro")
+    r = tools.get_pm25(ESTACION)
     assert "error" not in r
-    assert r["estacion"] == "Medellin-Centro"
+    assert r["estacion"] == ESTACION
     assert r["pm25"] > 0
     assert r["categoria"]
     assert r["unidad"] == "ug/m3"
@@ -36,12 +39,12 @@ def test_get_pm25_estacion_inexistente_devuelve_error_controlado():
 
 
 def test_get_pm25_fecha_invalida():
-    r = tools.get_pm25("Medellin-Centro", fecha="no-es-fecha")
+    r = tools.get_pm25(ESTACION, fecha="no-es-fecha")
     assert "error" in r
 
 
 def test_get_pm25_fecha_sin_dato():
-    r = tools.get_pm25("Medellin-Centro", fecha="1990-01-01")
+    r = tools.get_pm25(ESTACION, fecha="1990-01-01")
     assert "error" in r
     assert "rango_disponible" in r
 
@@ -49,7 +52,7 @@ def test_get_pm25_fecha_sin_dato():
 # ---------------------- predict_tomorrow ----------------------
 
 def test_predict_tomorrow_ok():
-    r = tools.predict_tomorrow("Medellin-Centro")
+    r = tools.predict_tomorrow(ESTACION)
     assert "error" not in r
     assert r["categoria_predicha_manana"]
     assert 0.0 <= r["confianza"] <= 1.0

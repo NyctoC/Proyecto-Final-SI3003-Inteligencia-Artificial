@@ -90,5 +90,6 @@ def test_guardar_y_cargar_modelo(tmp_path, monkeypatch):
     train.guardar_modelo(nb, {"test": True})
     nb2 = train.cargar_modelo()
     # El modelo recargado predice igual que el original.
-    X = np.array([[20.0, 22.0, 1.5, 0.0]])
+    # 4 features: pm25_hoy, pm25_delta, pm25_media7, dia_anio
+    X = np.array([[30.0, 5.0, 26.0, 60.0]])
     assert nb.predict(X)[0] == nb2.predict(X)[0]

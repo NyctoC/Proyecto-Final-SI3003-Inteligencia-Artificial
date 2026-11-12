@@ -63,14 +63,17 @@ def test_respuesta_directa_sin_tools():
 
 def test_ejecuta_tool_y_incorpora_observacion():
     # 1er turno: el modelo pide get_pm25; 2do turno: responde con el dato.
+    import json as _json
+    from src import tools as _tools
+    estacion = _tools.estaciones_disponibles()[0]
     respuestas = [
         _completion(tool_calls=[
-            _tool_call("c1", "get_pm25", '{"estacion": "Medellin-Centro"}')
+            _tool_call("c1", "get_pm25", _json.dumps({"estacion": estacion}))
         ]),
         _completion(content="El PM2.5 esta disponible; categoria segun datos."),
     ]
     ag = _agente_con(respuestas)
-    resp = ag.run("como esta el aire en Medellin-Centro?")
+    resp = ag.run("como esta el aire?")
     assert "get_pm25" in resp.herramientas_usadas
     assert resp.iteraciones == 2
     assert resp.texto.startswith("El PM2.5")
