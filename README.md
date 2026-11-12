@@ -30,17 +30,43 @@ interactivo con chat.
 
 ## Arquitectura
 
-```
-Datos reales (OpenAQ/SIATA) -> CSV, con fallback   Parte 1 (clasica)
-  src/siata_api.py  ->  src/data_loader.py  ->  src/naive_bayes.py + baselines
-                             |                        |
-                             v                        v
-Parte 2 (agente)        src/tools.py  <----  modelo entrenado (models/)
-  src/rag.py (TF-IDF)  ->  get_pm25 / predict_tomorrow / search_docs
-  src/agent.py (loop Groq + T_max) ----------------^
-                             |
-                             v
-Dashboard: app.py (Streamlit) + src/viz.py + src/ui_theme.py
+```mermaid
+flowchart TD
+    subgraph datos["Datos reales (OpenAQ / SIATA)"]
+        API["src/siata_api.py<br/>verifica API + fallback"]
+        CSV[("data/raw/siata_real.csv<br/>(plan B: siata_sample.csv)")]
+        LOADER["src/data_loader.py<br/>limpieza + features + categoria ICA"]
+        API --> LOADER
+        CSV --> LOADER
+    end
+
+    subgraph parte1["Parte 1 - tecnica clasica"]
+        NB["src/naive_bayes.py<br/>Naive Bayes Gaussiano (propio)"]
+        BASE["src/baselines.py<br/>mayoritaria + persistencia"]
+        MODELO[("models/<br/>modelo entrenado")]
+        LOADER --> NB
+        NB -.evalua vs.-> BASE
+        NB --> MODELO
+    end
+
+    subgraph parte2["Parte 2 - agente LLM"]
+        RAG["src/rag.py<br/>RAG TF-IDF sobre corpus"]
+        TOOLS["src/tools.py<br/>get_pm25 · predict_tomorrow · search_docs"]
+        AGENT["src/agent.py<br/>loop agentico Groq + T_max"]
+        AGENT --> TOOLS
+        TOOLS --> RAG
+        TOOLS --> LOADER
+        TOOLS --> MODELO
+    end
+
+    subgraph ui["Dashboard"]
+        APP["app.py (Streamlit)<br/>src/viz.py + src/ui_theme.py"]
+    end
+
+    LOADER --> APP
+    MODELO --> APP
+    AGENT --> APP
+    APP -->|"pregunta del usuario"| AGENT
 ```
 
 ## Requisitos
